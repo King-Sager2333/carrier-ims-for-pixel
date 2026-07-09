@@ -25,6 +25,7 @@ class ApnModifier : Instrumentation() {
         const val BUNDLE_TYPE = "type"
         const val BUNDLE_MCC = "mcc"
         const val BUNDLE_MNC = "mnc"
+        const val BUNDLE_HEAL_ONLY = "heal_only"
         const val BUNDLE_RESULT = "result"
         const val BUNDLE_RESULT_MSG = "result_msg"
 
@@ -70,19 +71,29 @@ class ApnModifier : Instrumentation() {
     }
 
     private fun applyApn(arguments: Bundle) {
+        val mcc = arguments.getString(BUNDLE_MCC).orEmpty().filter { it.isDigit() }.take(3)
+        val mnc = arguments.getString(BUNDLE_MNC).orEmpty().filter { it.isDigit() }.take(3)
+        require(mcc.length == 3) { "MCC must be 3 digits" }
+        require(mnc.length in 2..3) { "MNC must be 2 or 3 digits" }
+        val numeric = mcc + mnc
+
+        // Self-heal path: the network/SIM can silently re-push a merged "default,supl,ims"
+        // APN row after our split (e.g. OMA-CP/OTA carrier provisioning), so this needs to be
+        // re-checked periodically, not just once. No general APN row is created/edited here.
+        if (arguments.getBoolean(BUNDLE_HEAL_ONLY, false)) {
+            splitOutImsType(numeric)
+            Log.i(TAG, "APN ims-type drift check completed for numeric=$numeric")
+            return
+        }
+
         val subId = arguments.getInt(BUNDLE_SELECT_SIM_ID, -1)
         val name = arguments.getString(BUNDLE_NAME).orEmpty().trim()
         val apn = arguments.getString(BUNDLE_APN).orEmpty().trim()
         val rawType = arguments.getString(BUNDLE_TYPE).orEmpty().trim().ifBlank { "default,supl,ims" }
-        val mcc = arguments.getString(BUNDLE_MCC).orEmpty().filter { it.isDigit() }.take(3)
-        val mnc = arguments.getString(BUNDLE_MNC).orEmpty().filter { it.isDigit() }.take(3)
         require(subId >= 0) { "invalid subId" }
         require(name.isNotBlank()) { "APN name is blank" }
         require(apn.isNotBlank()) { "APN is blank" }
-        require(mcc.length == 3) { "MCC must be 3 digits" }
-        require(mnc.length in 2..3) { "MNC must be 2 or 3 digits" }
 
-        val numeric = mcc + mnc
         val requestedTypes = rawType.split(",").map { it.trim() }.filter { it.isNotBlank() }
         val generalTypes = requestedTypes.filterNot { it == IMS_TYPE }
 
