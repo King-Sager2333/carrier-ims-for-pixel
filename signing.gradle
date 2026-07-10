@@ -31,8 +31,13 @@ if (!configured) {
 }
 
 if (!configured) {
-    android.signingConfigs.sign.storeFile android.signingConfigs.debug.storeFile
-    android.signingConfigs.sign.storePassword android.signingConfigs.debug.storePassword
-    android.signingConfigs.sign.keyAlias android.signingConfigs.debug.keyAlias
-    android.signingConfigs.sign.keyPassword android.signingConfigs.debug.keyPassword
+    if (android.signingConfigs.debug.storeFile != null && android.signingConfigs.debug.storeFile.exists()) {
+        android.signingConfigs.sign.storeFile android.signingConfigs.debug.storeFile
+        android.signingConfigs.sign.storePassword android.signingConfigs.debug.storePassword
+        android.signingConfigs.sign.keyAlias android.signingConfigs.debug.keyAlias
+        android.signingConfigs.sign.keyPassword android.signingConfigs.debug.keyPassword
+    } else {
+        android.buildTypes.release.signingConfig = null
+        android.buildTypes.debug.signingConfig = null
+    }
 }
