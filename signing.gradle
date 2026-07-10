@@ -37,7 +37,7 @@ if (!configured) {
         android.signingConfigs.sign.keyAlias android.signingConfigs.debug.keyAlias
         android.signingConfigs.sign.keyPassword android.signingConfigs.debug.keyPassword
     } else {
-        android.buildTypes.release.signingConfig = null
-        android.buildTypes.debug.signingConfig = null
+        android.buildTypes.release.signingConfig = android.signingConfigs.debug
+        android.buildTypes.debug.signingConfig = android.signingConfigs.debug
     }
 }
