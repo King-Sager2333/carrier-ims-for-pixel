@@ -210,8 +210,8 @@ private enum class MainTab(
 ) {
     IMS(R.string.tab_ims),
     EXTRA(R.string.tab_extra),
-    SUPPORT(R.string.tab_support),
-    COOPERATION(R.string.tab_cooperation),
+    /*SUPPORT*/
+    /*COOPERATION*/
     ABOUT(R.string.tab_about),
 }
 
@@ -575,7 +575,7 @@ class MainActivity : BaseActivity() {
             }
         }
         LaunchedEffect(selectedTab) {
-            if (selectedTab != MainTab.SUPPORT || !viewModel.isDodopaySupportFeedConfigured()) {
+            if (true) {
                 return@LaunchedEffect
             }
             supportRecordsLoading = true
@@ -843,7 +843,7 @@ class MainActivity : BaseActivity() {
             contentWindowInsets = WindowInsets(0.dp),
             bottomBar = {
                 NavigationBar {
-                    MainTab.entries.forEach { tab ->
+                    MainTab.entries.filter { it.name != "SUPPORT" && it.name != "COOPERATION" }.forEach { tab ->
                         NavigationBarItem(
                             selected = selectedTab == tab,
                             onClick = { selectedTab = tab },
@@ -852,8 +852,8 @@ class MainActivity : BaseActivity() {
                                     text = when (tab) {
                                         MainTab.IMS -> "IMS"
                                         MainTab.EXTRA -> "+"
-                                        MainTab.SUPPORT -> "$"
-                                        MainTab.COOPERATION -> "AD"
+                                        /*SUPPORT*/
+                                        /*COOPERATION*/
                                         MainTab.ABOUT -> "i"
                                     },
                                     fontSize = 11.sp,
@@ -967,7 +967,7 @@ class MainActivity : BaseActivity() {
                         },
                         onIssueClick = submitIssueAction,
                         onDonateClick = {
-                            selectedTab = MainTab.SUPPORT
+                            selectedTab = MainTab.IMS
                         },
                         showDonateButton = false,
                     )
@@ -1325,7 +1325,7 @@ class MainActivity : BaseActivity() {
                         },
                     )
                 }
-                if (selectedTab == MainTab.SUPPORT) {
+                if (false) {
                     SupportPage(
                         supportPaymentConfigured = viewModel.isDodopaySupportConfigured(),
                         adFreeEnabled = adFreeEnabled,
@@ -1349,7 +1349,7 @@ class MainActivity : BaseActivity() {
                         },
                     )
                 }
-                if (selectedTab == MainTab.COOPERATION) {
+                if (false) {
                     CooperationPage(
                         adsConfigured = viewModel.isAdServiceConfigured(),
                         businessIntentConfigured = viewModel.isBusinessIntentConfigured(),
@@ -1395,58 +1395,12 @@ class MainActivity : BaseActivity() {
                 }
                 Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
 
-                if (!adFreeEnabled) homeAdToShow?.let { ad ->
-                    CommercialAdDialog(
-                        ad = ad,
-                        onOpen = {
-                            homeAdToShow = null
-                            if (ad.actionUrl.isNotBlank()) uriHandler.openUri(ad.actionUrl)
-                        },
-                        onDismiss = {
-                            viewModel.dismissHomeAd(ad)
-                            homeAdToShow = null
-                        }
-                    )
-                }
-                supportPaymentUrl?.let { url ->
-                    SupportPaymentDialog(
-                        url = url,
-                        onCancelPendingOrder = { orderId ->
-                            scope.launch {
-                                val result = viewModel.cancelDodopaySupportOrder(orderId)
-                                result.exceptionOrNull()?.let { error ->
-                                    Log.w("MainActivity", "cancel DoDoPay support order failed: $orderId, msg=${error.message}")
-                                }
-                            }
-                        },
-                        onDismiss = { paymentProof ->
-                            supportPaymentUrl = null
-                            if (paymentProof != null) {
-                                scope.launch {
-                                    val result = viewModel.verifyDodopayPaymentProof(paymentProof)
-                                    if (result.getOrDefault(false)) {
-                                        adFreeEnabled = true
-                                        commercialAds = emptyList()
-                                        homeAdToShow = null
-                                        Toast.makeText(context, R.string.support_ad_free_verified, Toast.LENGTH_SHORT).show()
-                                    } else if (result.isFailure) {
-                                        Toast.makeText(context, R.string.support_ad_free_verify_failed, Toast.LENGTH_LONG).show()
-                                    }
-                                }
-                            }
-                            if (viewModel.isDodopaySupportFeedConfigured()) {
-                                scope.launch {
-                                    supportRecordsLoading = true
-                                    supportRecordsError = null
-                                    val result = viewModel.fetchSupportRecords()
-                                    supportRecords = result.getOrDefault(emptyList())
-                                    supportRecordsError = result.exceptionOrNull()?.message
-                                    supportRecordsLoading = false
-                                }
-                            }
-                        },
-                    )
-                }
+                if (!adFreeEnabled) homeAdToShow?.let {
+
+}
+                supportPaymentUrl?.let {
+
+}
                 apnDraft?.let { draft ->
                     ApnConfirmDialog(
                         draft = draft,
