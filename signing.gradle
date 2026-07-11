@@ -1,17 +1,43 @@
 def kFile = rootProject.file('local.properties')
 def props = new Properties()
+def configured = false
+
 if (kFile.canRead()) {
     props.load(new FileInputStream(kFile))
-
-    if (props != null) {
-        android.signingConfigs.sign.storeFile file(props['SIGN_KEY_STORE_FILE'])
-        android.signingConfigs.sign.storePassword props['SIGN_KEY_STORE_PASSWORD']
-        android.signingConfigs.sign.keyAlias props['SIGN_KEY_ALIAS']
-        android.signingConfigs.sign.keyPassword props['SIGN_KEY_PASSWORD']
+    if (props.containsKey('SIGN_KEY_STORE_FILE')) {
+        def f = file(props['SIGN_KEY_STORE_FILE'])
+        if (f.exists() && f.length() > 0) {
+            android.signingConfigs.sign.storeFile f
+            android.signingConfigs.sign.storePassword props['SIGN_KEY_STORE_PASSWORD']
+            android.signingConfigs.sign.keyAlias props['SIGN_KEY_ALIAS']
+            android.signingConfigs.sign.keyPassword props['SIGN_KEY_PASSWORD']
+            configured = true
+        }
     }
-} else {
-    android.signingConfigs.sign.storeFile file(System.getenv('SIGN_KEY_STORE_FILE'))
-    android.signingConfigs.sign.storePassword System.getenv('SIGN_KEY_STORE_PASSWORD')
-    android.signingConfigs.sign.keyAlias System.getenv('SIGN_KEY_ALIAS')
-    android.signingConfigs.sign.keyPassword System.getenv('SIGN_KEY_PASSWORD')
+}
+
+if (!configured) {
+    def envFile = System.getenv('SIGN_KEY_STORE_FILE')
+    if (envFile != null && !envFile.trim().isEmpty()) {
+        def f = file(envFile)
+        if (f.exists() && f.length() > 0) {
+            android.signingConfigs.sign.storeFile f
+            android.signingConfigs.sign.storePassword System.getenv('SIGN_KEY_STORE_PASSWORD')
+            android.signingConfigs.sign.keyAlias System.getenv('SIGN_KEY_ALIAS')
+            android.signingConfigs.sign.keyPassword System.getenv('SIGN_KEY_PASSWORD')
+            configured = true
+        }
+    }
+}
+
+if (!configured) {
+    if (android.signingConfigs.debug.storeFile != null && android.signingConfigs.debug.storeFile.exists()) {
+        android.signingConfigs.sign.storeFile android.signingConfigs.debug.storeFile
+        android.signingConfigs.sign.storePassword android.signingConfigs.debug.storePassword
+        android.signingConfigs.sign.keyAlias android.signingConfigs.debug.keyAlias
+        android.signingConfigs.sign.keyPassword android.signingConfigs.debug.keyPassword
+    } else {
+        android.buildTypes.release.signingConfig = android.signingConfigs.debug
+        android.buildTypes.debug.signingConfig = android.signingConfigs.debug
+    }
 }
