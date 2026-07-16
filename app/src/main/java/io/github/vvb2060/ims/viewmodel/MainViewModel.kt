@@ -605,16 +605,11 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
             httpsUrl = config.httpsUrl
         )
     }
-
-    fun isDodopaySupportConfigured(): Boolean = dodopaySupportUrlTemplate != null
-
-    fun isDodopaySupportFeedConfigured(): Boolean = dodopaySupportFeedUrl != null
-
-    fun isAdFreeEnabled(): Boolean = runtimePrefs.getBoolean(AD_FREE_PREF_KEY, false)
-
-    fun isAdServiceConfigured(): Boolean = adApiBaseUrl != null
-
-    fun isBusinessIntentConfigured(): Boolean = businessIntentBaseUrl != null
+    fun isDodopaySupportConfigured(): Boolean = false
+    fun isDodopaySupportFeedConfigured(): Boolean = false
+    fun isAdFreeEnabled(): Boolean = true
+    fun isAdServiceConfigured(): Boolean = false
+    fun isBusinessIntentConfigured(): Boolean = false
 
     suspend fun checkNetworkExit(): Result<NetworkExitStatus> = withContext(Dispatchers.IO) {
         runCatching {
@@ -639,167 +634,48 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
         }
     }
 
-    suspend fun fetchCommercialAds(): Result<List<CommercialAd>> = withContext(Dispatchers.IO) {
-        runCatching {
-            val baseUrl = adApiBaseUrl ?: return@runCatching emptyList()
-            val publicAds = runCatching {
-                val json = fetchJsonObject(baseUrl + PROJECT_SOURCE_AD_SLOTS_PATH)
-                SupportRules.parseCommercialAds(json)
-            }.getOrDefault(emptyList())
-            if (publicAds.isNotEmpty()) {
-                return@runCatching publicAds
-            }
-            val compatiblePublicAds = runCatching {
-                SupportRules.parseCommercialAds(fetchJsonObject(baseUrl + PROJECT_PUBLIC_AD_SLOTS_PATH))
-            }.getOrDefault(emptyList())
-            compatiblePublicAds
-        }
-    }
+    suspend fun fetchCommercialAds(): Result<List<CommercialAd>> = Result.success(emptyList())
 
-    suspend fun fetchSupportRecords(): Result<List<SupportRecord>> = withContext(Dispatchers.IO) {
-        runCatching {
-            val url = dodopaySupportFeedUrl ?: return@runCatching emptyList()
-            SupportRules.parseSupportRecords(fetchJsonObject(url))
-        }
-    }
 
-    suspend fun verifyDodopayPaymentProof(paymentProof: String): Result<Boolean> = withContext(Dispatchers.IO) {
-        runCatching {
-            val verifyUrl = buildDodopayPaymentProofUrl(paymentProof)
-                ?: throw IllegalStateException("DoDoPay payment proof is not configured")
-            val verification = SupportRules.parsePaymentProofVerification(fetchJsonObject(verifyUrl))
-            val unlocked = SupportRules.isAdFreePaymentProof(
-                proof = verification,
-                expectedClientRef = getOrCreateSupportClientRef(),
-                expectedAppId = dodopaySupportAppId,
-            )
-            if (unlocked) {
-                runtimePrefs.edit { putBoolean(AD_FREE_PREF_KEY, true) }
-            }
-            unlocked
-        }
-    }
+    suspend fun fetchSupportRecords(): Result<List<SupportRecord>> = Result.success(emptyList())
 
-    fun shouldShowHomeAd(ad: CommercialAd): Boolean {
-        val dismissedAt = when (val raw = adPrefs.all["dismissed_${ad.id}"]) {
-            is Long -> raw
-            is Boolean -> if (raw) adPrefs.getLong("shown_${ad.id}", 0L) else 0L
-            else -> 0L
-        }
-        val lastShown = adPrefs.getLong("shown_${ad.id}", 0L)
-        return SupportRules.shouldShowHomeAd(
-            ad = ad,
-            nowMillis = System.currentTimeMillis(),
-            lastShownAtMillis = lastShown,
-            dismissedAtMillis = dismissedAt,
-        )
-    }
 
-    fun markHomeAdShown(ad: CommercialAd) {
-        adPrefs.edit { putLong("shown_${ad.id}", System.currentTimeMillis()) }
-    }
+    suspend fun verifyDodopayPaymentProof(paymentProof: String): Result<Boolean> = Result.success(false)
 
-    fun dismissHomeAd(ad: CommercialAd) {
-        adPrefs.edit {
-            val now = System.currentTimeMillis()
-            putLong("dismissed_${ad.id}", now)
-            putLong("shown_${ad.id}", now)
-        }
-    }
+
+    fun shouldShowHomeAd(ad: CommercialAd): Boolean  { return false }
+
+
+    fun markHomeAdShown(ad: CommercialAd)  { return Unit }
+
+
+    fun dismissHomeAd(ad: CommercialAd)  { return Unit }
+
 
     fun buildDodopaySupportUrl(
         name: String,
         message: String,
         amount: String,
         channel: SupportPaymentChannel,
-    ): Result<String> = runCatching {
-        val template = dodopaySupportUrlTemplate
-            ?: throw IllegalStateException(application.getString(R.string.support_payment_not_configured))
-        val normalizedAmount = amount.trim()
-        val validAmount = SupportRules.normalizeSupportAmount(normalizedAmount)
-            ?: throw IllegalArgumentException(application.getString(R.string.support_amount_invalid))
-        SupportRules.buildUrlWithQueryParams(
-            template = template,
-            params = linkedMapOf(
-                "amount" to validAmount,
-                "payer_name" to name.trim().ifBlank { "匿名用户" },
-                "payer_message" to message.trim(),
-                "source" to "turboims_android",
-                "app_version" to BuildConfig.VERSION_NAME,
-                "title" to application.getString(R.string.support_payment_page_title),
-                "description" to application.getString(R.string.support_payment_page_desc),
-                "subject" to application.getString(R.string.support_payment_subject),
-                "button_text" to application.getString(R.string.support_payment_button),
-                "return_mode" to "close",
-                "return_label" to application.getString(R.string.support_payment_return_app),
-                "client_ref" to getOrCreateSupportClientRef(),
-                "proof_key" to SupportRules.AD_FREE_PROOF_KEY,
-                "channel" to channel.queryValue,
-                "auto_checkout" to "1",
-            ),
-            aliases = mapOf(
-                "name" to "payer_name",
-                "message" to "payer_message",
-            ),
-        )
-    }
+    ): Result<String> = runCatching  { return Result.failure(Exception("")) }
 
-    private fun getOrCreateSupportClientRef(): String {
-        val existing = runtimePrefs.getString(SUPPORT_CLIENT_REF_PREF_KEY, "").orEmpty()
-        if (existing.isNotBlank()) return existing
-        val generated = "client_${UUID.randomUUID().toString().replace("-", "")}"
-        runtimePrefs.edit { putString(SUPPORT_CLIENT_REF_PREF_KEY, generated) }
-        return generated
-    }
 
-    private fun buildDodopayPaymentProofUrl(paymentProof: String): String? {
-        val origin = SupportRules.resolveUrlOrigin(dodopaySupportUrlTemplate.orEmpty()) ?: return null
-        return "$origin/api/public/payment-proofs/$paymentProof"
-    }
+    private fun getOrCreateSupportClientRef(): String  { return "" }
 
-    suspend fun cancelDodopaySupportOrder(orderId: String): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
-            val cancelUrl = SupportRules.buildDodopayPublicSupportCancelUrl(
-                supportUrlTemplate = dodopaySupportUrlTemplate.orEmpty(),
-                orderId = orderId,
-            ) ?: throw IllegalArgumentException("invalid DoDoPay order id")
-            postJsonObject(cancelUrl, JSONObject())
-            Unit
-        }
-    }
+
+    private fun buildDodopayPaymentProofUrl(paymentProof: String): String?  { return null }
+
+
+    suspend fun cancelDodopaySupportOrder(orderId: String): Result<Unit> = Result.success(Unit)
+
 
     suspend fun submitBusinessIntent(
         intentType: BusinessIntentType,
         name: String,
         contact: String,
         message: String,
-    ): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
-            val baseUrl = businessIntentBaseUrl
-                ?: throw IllegalStateException(application.getString(R.string.business_intent_not_configured))
-            val normalizedContact = contact.trim()
-            val normalizedMessage = message.trim()
-            if (normalizedContact.isBlank()) {
-                throw IllegalArgumentException(application.getString(R.string.business_contact_required))
-            }
-            if (normalizedMessage.isBlank()) {
-                throw IllegalArgumentException(application.getString(R.string.business_message_required))
-            }
-            val payload = JSONObject()
-            SupportRules.buildBusinessIntentParams(
-                sourceName = "Carrier IMS",
-                sourceVersion = BuildConfig.VERSION_NAME,
-                intentType = intentType,
-                name = name,
-                contact = normalizedContact,
-                message = normalizedMessage,
-            ).forEach { (key, value) ->
-                payload.put(key, value)
-            }
-            postJsonObject(baseUrl + PROJECT_BUSINESS_INTENTS_PATH, payload)
-            Unit
-        }
-    }
+    ): Result<Unit> = Result.success(Unit)
+
 
     fun buildSuggestedApnConfig(selectedSim: SimSelection): ApnDraftConfig {
         val mcc = SupportRules.normalizeMcc(selectedSim.mcc)
