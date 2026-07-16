@@ -1,5 +1,7 @@
 # Carrier IMS for Pixel (TurboIMS)
 
+- 移除广告与推广相关内容 支持Android 17 QPR1 Beta 7
+
 <p align="center">
   <img src="app/src/main/ic_launcher-playstore.png" width="128" alt="Carrier IMS logo" />
 </p>
